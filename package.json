@@ -11,5 +11,8 @@
     "trakt"
   ],
   "author": "Ben Davis",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "csv": "0.4.2"
+  }
 }
