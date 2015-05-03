@@ -5,21 +5,8 @@ import http = require('http');
 import https = require('https');
 import querystring = require('querystring');
 import Movie = require('./lib/movie');
+import userCredentials = require('./credentials');
 var csv = require('csv');
-
-/****************************************************************************************/
-/****************************************************************************************/
-// Inputs
-var authorId = "urXXXXXXXX"; // This is your IMDB user id e.g. found in the url of your watchlist
-
-var imdbCookie = ''; // This is a cookie that is saved by imdb when you sign in using the browser
-					 // it is stored under the url www.imdb.com and the key 'id'
-					 
-var traktAccessToken = ''; // This is an access token created to authorise your trakt app to access your trakt user from OAuth
-
-var traktAPIKey = ''; // This is the API key for your trakt app
-/****************************************************************************************/
-/****************************************************************************************/
 
 // Constants
 var imdbURL = "www.imdb.com";
@@ -60,10 +47,10 @@ function getCSVUsingHTTPOptions(options: Object, callback: (error: Error, result
 function createHTTPOptionsForGettingIMDBWatchlist(): Object {
 	var imdbGetParams = querystring.stringify({
 		list_id: 'watchlist',
-		author_id: authorId
+		author_id: userCredentials.authorId
 	});
 
-	var cookie = 'id=' + imdbCookie + ';';
+	var cookie = 'id=' + userCredentials.imdbCookie + ';';
 
 	var options = {
 		host: imdbURL,
@@ -148,8 +135,8 @@ function createHTTPSOptionsForAddingMoviesToTrakt(): Object {
 		path: traktWatchlistPath,
 		method: 'POST',
 		headers: {
-			'Authorization': 'Bearer ' + traktAccessToken,
-			'trakt-api-key': traktAPIKey,
+			'Authorization': 'Bearer ' + userCredentials.traktAccessToken,
+			'trakt-api-key': userCredentials.traktAPIKey,
 			'trakt-api-version': '2',
 			'Content-type': 'application/json'
 		}
@@ -177,8 +164,8 @@ function createHTTPSOptionsForRemovingMoviesFromTrakt(): Object {
 		path: traktRemoveFromWatchlistPath,
 		method: 'POST',
 		headers: {
-			'Authorization': 'Bearer ' + traktAccessToken,
-			'trakt-api-key': traktAPIKey,
+			'Authorization': 'Bearer ' + userCredentials.traktAccessToken,
+			'trakt-api-key': userCredentials.traktAPIKey,
 			'trakt-api-version': '2',
 			'Content-type': 'application/json'
 		}
@@ -259,8 +246,8 @@ function createHTTPSOptionsForGettingTraktWatchlist(): Object {
 		path: traktGetWatchlistPath,
 		method: 'GET',
 		headers: {
-			'Authorization': 'Bearer ' + traktAccessToken,
-			'trakt-api-key': traktAPIKey,
+			'Authorization': 'Bearer ' + userCredentials.traktAccessToken,
+			'trakt-api-key': userCredentials.traktAPIKey,
 			'trakt-api-version': '2',
 			'Content-type': 'application/json'
 		}
@@ -281,6 +268,28 @@ function getWatchlistFromTrakt(callback: (movies: Movie[])=>void) {
 	});
 }
 
+function movieExistsInArray(needle: Movie, haystack: Array<Movie>): boolean {
+	for (var j = 0; j < haystack.length; j++) {
+		let movieObject = haystack[j];
+		if (movieObject.isEqualToMovie(movieObject)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function findMoviesNotInFirst(first: Array<Movie>, second: Array<Movie>): Array<Movie> {
+	var moviesNotInFirst = new Array<Movie>();
+	for (var i = 0; i < second.length; i++) {
+		let movieObject = second[i];
+		
+		if (!movieExistsInArray(movieObject, first)) {
+			moviesNotInFirst.push(movieObject);
+		}
+	}
+	return moviesNotInFirst;
+}
+
 // First get watchlist from imdb
 // http://www.imdb.com/list/export?list_id=watchlist&author_id=ur45425175
 
@@ -293,34 +302,30 @@ getIMDBWatchlist(function (imdbMovies) {
 		console.log("Got watchlist from trakt. " + traktMovies.length + " movies found.");
 		
 		// Find movies to delete
-		var moviesToDelete = new Array<Movie>();
-		for (var i = 0; i < traktMovies.length; i++) {
-			let traktMovieObject = traktMovies[i];
-			
-			let foundMovieInImdb = false;
-			for (var j = 0; j < imdbMovies.length; j++) {
-				let imdbMovieObject = imdbMovies[j];
-				if (traktMovieObject.isEqualToMovie(imdbMovieObject)) {
-					foundMovieInImdb = true;
-					break;
-				}
-			}
-			
-			if (!foundMovieInImdb) {
-				moviesToDelete.push(traktMovieObject);
+		let moviesToDelete = findMoviesNotInFirst(imdbMovies, traktMovies);
+		
+		function addMoviesToTraktAndPrintResponse() {
+			let moviesToAdd = findMoviesNotInFirst(traktMovies, imdbMovies);
+			if (moviesToAdd.length > 0) {
+				console.log("Adding movies to trakt...");
+				addMoviesToTrakt(imdbMovies, function(data) {
+					printAddToTraktSuccessOutput(data);
+				});
+			} else {
+				console.log("No movies to add");
 			}
 		}
 		
-		console.log("Deleting " + moviesToDelete.length + " movies from trakt");
-		deleteMoviesFromTraktWatchlist(moviesToDelete, function (response) {
-			printRemoveFromTraktSuccessOutput(response);
-			
-			console.log("Adding movies to trakt...");
-			addMoviesToTrakt(imdbMovies, function(data) {
-				printAddToTraktSuccessOutput(data);
+		if (moviesToDelete.length > 0) {
+			console.log("Deleting " + moviesToDelete.length + " movies from trakt");
+			deleteMoviesFromTraktWatchlist(moviesToDelete, function (response) {
+				printRemoveFromTraktSuccessOutput(response);
+				addMoviesToTraktAndPrintResponse();
 			});
-		});
-		
+		} else {
+			console.log("No movies to delete");
+			addMoviesToTraktAndPrintResponse();
+		}
 		
 	});
 	
