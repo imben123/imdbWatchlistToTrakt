@@ -4,6 +4,7 @@
   "description": "Synchronises your imdb watchlist to trakt.tv",
   "main": "index.js",
   "scripts": {
+    "compile": "tsc ./lib/movie.ts index.ts credentials.ts --module commonjs",
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

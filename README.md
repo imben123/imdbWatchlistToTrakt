@@ -14,5 +14,5 @@ You also need to create a trakt.tv app to get an api key. Once you've created th
 
 1. run 'npm install'
 2. fill out the inputs at the top of index.ts
-3. run 'tsc index.ts lib/movie.ts --module commonjs'
-4. run 'node index.js'
+3. run 'npm run-script compile'
+4. run 'npm start'
