@@ -13,6 +13,6 @@ You also need to create a trakt.tv app to get an api key. Once you've created th
 ##To run this script
 
 1. run 'npm install'
-2. fill out the inputs at the top of index.ts
+2. fill out your details in the credentials.ts
 3. run 'npm run-script compile'
 4. run 'npm start'
